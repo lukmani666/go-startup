@@ -1,8 +1,15 @@
 package basics
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
 )
 
 // 1. variables constants
@@ -206,3 +213,406 @@ func LoopExample()  {
 		fmt.Println(name, "is", age, "years old")
 	}
 }
+
+//defining a struct
+type Person struct {
+	Name string
+	Age int
+	City string
+}
+
+func StructExample() {
+	//create a struct using field names
+	p1 := Person{Name: "Lukman", Age: 20, City: "Lagos"}
+
+	//create a struct without field names (order matters)
+	p2 := Person{"Aisha", 25, "Abuja"}
+
+	//zero value struct
+	var p3 Person
+
+	fmt.Println("Person 1:", p1)
+	fmt.Println("Person 2:", p2)
+	fmt.Println("Person 3 (zero value):", p3)
+}
+
+// Methods on Structs
+//Go doesn’t have classes, but you can define methods on structs.
+//method with value receiver
+func (p Person) Greet() {
+	fmt.Println("Hello, my name is", p.Name, "and I live in ", p.City)
+}
+
+//method with value receiver that returns something
+func (p Person) IsAdult() bool {
+	return p.Age >= 18
+}
+
+func MethodExample() {
+	p := Person{Name: "Micheal", Age: 30, City: "Ibadan"}
+	p.Greet()
+	fmt.Println("Is Adult?", p.IsAdult())
+}
+
+// method with pointer receiver (can modify struct)
+func (p *Person) UpdateCity(newCity string) {
+	p.City = newCity
+}
+
+func PointerExample() {
+	p := Person{Name: "Fatima", Age: 22, City: "Kano"}
+	fmt.Println("Before update:", p)
+
+	//update city using pointer receiver
+	p.UpdateCity("Abuja")
+
+	fmt.Println("After update:", p)
+}
+
+//define an interface
+type Shape interface {
+	Area() float64
+	Perimeter() float64
+}
+
+//define a struct
+type Rectangle struct {
+	Width, Height float64
+}
+
+//rectangle implements Shape
+func (r Rectangle) Area() float64 {
+	return r.Width * r.Height
+}
+
+func (r Rectangle) Perimeter() float64 {
+	return 2 * (r.Width + r.Height)
+}
+
+func InterfaceExample() {
+	var s Shape
+	s = Rectangle{Width: 10, Height: 5}
+
+	fmt.Println("Area:", s.Area())
+	fmt.Println("Perimeter:", s.Perimeter())
+}
+
+//polymorphism in GO
+type Circle struct {
+	Radius float64
+}
+
+func (c Circle) Area() float64 {
+	return 3.14 * c.Radius * c.Radius
+}
+
+func (c Circle) Perimeter() float64 {
+	return  2 * 3.14 * c.Radius
+}
+
+func PolymorphismExample() {
+	shapes := []Shape{
+		Rectangle{Width: 4, Height: 6},
+		Circle{Radius: 3},
+	}
+
+	for _, shapes := range shapes {
+		fmt.Println("Area:", shapes.Area(), "Perimeter:", shapes.Perimeter())
+	}
+}
+
+//importing standard library packages
+func StdLibExample() {
+	fmt.Println("Square root of 16:", math.Sqrt(16))
+	fmt.Println("Uppercase:", strings.ToUpper("lukman"))
+}
+
+
+//working with goroutine
+func PrintMessage(msg string) {
+	for i := 0; i < 3; i ++ {
+		fmt.Println(msg, i)
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func GoroutineExample() {
+	//run this in a goroutine
+	go PrintMessage("From Goroutine")
+	
+	//run in main thread
+	PrintMessage("From Main Funtion")
+
+	// give goroutine time to finish
+	time.Sleep(2 * time.Second)
+}
+
+func ChannelExample() {
+	ch := make(chan string)
+
+	// sender goroutine
+	go func ()  {
+		ch <- "Hello from goroutine!" // send data
+	} ()
+
+	//receiver
+	message := <- ch // receive data
+	fmt.Println("Received:", message)
+}
+
+func SelectExample() {
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+
+	//goroutine 1
+	go func() {
+		time.Sleep(1 * time.Second)
+		ch1 <- "Message from ch1"
+	}()
+
+	go func ()  {
+		time.Sleep(2 * time.Second)
+		ch2 <- "Message from ch2"
+	}()
+
+	//wait for whichever comes first
+	select {
+	case msg1 := <- ch1:
+		fmt.Println("Received:", msg1)
+	case msg2 := <- ch2:
+		fmt.Println("Received:", msg2)
+	case <- time.After(3 * time.Second):
+		fmt.Println("Timeout: no message received")
+	}
+}
+
+// real-world example: Worker pool
+func worker(id int, jobs <- chan int, results chan <- int) {
+	for j := range jobs {
+		fmt.Println("Worker", id, "processing job", j)
+		time.Sleep(time.Second) // simulate work
+		results <- j * 2
+	}
+}
+
+func WorkPoolExample() {
+	jobs := make(chan int, 5)
+	results := make(chan int, 5)
+
+	// start 3 workers
+	for w := 1; w <= 3; w++ {
+		go worker(w, jobs, results)
+	}
+
+	//send 5 jobs
+	for j := 1; j <= 5; j++ {
+		jobs <- j
+	}
+	close(jobs)
+
+	//collect results
+	for a := 1; a <= 5; a++ {
+		fmt.Println("Result:", <-results)
+	}
+}
+
+// worker simulates a task done by a goroutine
+func secondWorker(id int, wg *sync.WaitGroup) {
+	defer wg.Done() //mark this worker as done once finished
+	fmt.Printf("Worker %d starting\n", id)
+
+	//simulate some work (like processing data)
+	for i := 1; i <= 3; i++ {
+		fmt.Printf("Worker %d working on step %d\n", id, i)
+	}
+
+	fmt.Printf("Worker %d finished\n", id)
+}
+
+func SyncWorker() {
+	var wg sync.WaitGroup //create a WaitGroup
+
+	// launch 3 workers
+	for i := 1; i <= 3; i++ {
+		wg.Add(1) // add one worker to WaitGroup
+		go secondWorker(i, &wg) // run worker as goroutine
+	}
+
+	//wait for all workers to finish
+	wg.Wait()
+
+	fmt.Println("All workers completed ✅")
+}
+
+func workerChannel(id int, wg *sync.WaitGroup, results chan <- string) {
+	defer wg.Done() // signal completion when function ends
+
+	//simulate some work
+	message := fmt.Sprintf("Worker %d finished its job", id)
+
+	// send result into channel
+	results <- message
+}
+
+func SyncWorkerChan() {
+	var wg sync.WaitGroup
+	results := make(chan string, 5) // buffered channel (size 5)
+
+	//start 3 workers
+	for i := 1; i <= 5; i++ {
+		wg.Add(1)
+		go workerChannel(i, &wg, results)
+	}
+
+	//launch a separate goroutine to close the channel
+	// once all workers are done
+	go func() {
+		wg.Wait() // wait for all workers
+		close(results) // close the channel
+	}()
+
+	// receive results from the channel
+	for results := range results {
+		fmt.Println(results)
+	}
+
+	fmt.Println("All workers completed")
+}
+
+func WriteFile() {
+	//create or overwrite file
+	file, err := os.Create("example.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close() // ensure file closes when function exists
+
+	//write text to file
+	_, err = file.WriteString("Hello, Go File Handling! 🚀\n")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("File written successfully")
+}
+
+func ReadFile() {
+	data, err := os.ReadFile("example.txt")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("File contents:")
+	fmt.Println(string(data))
+}
+
+type User struct {
+	Name string `json:"name"`
+	Age int     `json:"age"`
+	Email string `json:"email"`
+}
+
+func EncodeJson() {
+	user := User{Name: "Lukman", Age: 25, Email: "lukman@example.com"}
+
+	//convert struct to JSON
+	data, err := json.MarshalIndent(user, "", " ") // pretty print
+	if err != nil {
+		panic(err)
+	}
+
+	//save JSON to file
+	err = os.WriteFile("user.json", data, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("User saved to user.json")
+}
+
+func DecodeJson() {
+	data, err := os.ReadFile("user.json")
+	if err != nil {
+		panic(err)
+	}
+
+	var user User
+	err = json.Unmarshal(data, &user) // decode into struct
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Decode User Struct:")
+	fmt.Println("Name:", user.Name)
+	fmt.Println("Age:", user.Age)
+	fmt.Println("Email:", user.Email)
+}
+
+func JsonArray() {
+	users := []User{
+		{Name: "Lukman", Age: 25, Email: "lukman@example.com"},
+		{Name: "Ada", Age: 30, Email: "ada@example.com"},
+	}
+
+	// encode list of users
+	data, _ :=  json.MarshalIndent(users, "", " ")
+	fmt.Println(string(data))
+
+	// decode JSON back into slice
+	var decoded []User
+	json.Unmarshal(data, &decoded)
+
+	fmt.Println("\nDecoded Users:")
+	for _, u := range decoded {
+		fmt.Printf("%s (%d) - %s\n", u.Name, u.Age, u.Email)
+	}
+}
+
+func Calculator() {
+	var a, b float64
+	var op string
+
+	fmt.Print("Enter first number: ")
+	fmt.Scanln(&a)
+
+	fmt.Print("Enter operator (+, -, *, /): ")
+	fmt.Scanln(&op)
+
+	fmt.Print("Enter second number: ")
+	fmt.Scanln(&b)
+
+	switch op {
+	case "+":
+		fmt.Printf("Result: %.2f\n", a+b)
+	case "-":
+		fmt.Printf("Result: %.2f\n", a-b)
+	case "*":
+		fmt.Printf("Result: %.2f\n", a*b)
+	case "/":
+		if b != 0 {
+			fmt.Printf("Result: %.2f\n", a/b)
+		} else {
+			fmt.Println("Error: Division by zero")
+		}
+	default:
+		fmt.Println("Invalid operator")
+	}
+}
+
+func handleHandler(w http.ResponseWriter, r *http.Request) {
+	// fmt.Fprintln(w, "Hello, Go Web Server! 🚀")
+	user := User{Name: "Lukman", Age: 25, Email: "lukman@example.com"}
+
+	// set response header to JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	// encode struct as JSON and send to client
+	json.NewEncoder(w).Encode(user)
+}
+
+func WebServer() {
+	http.HandleFunc("/user", handleHandler) // register route
+	fmt.Println("Server running on http://localhost:8080")
+	http.ListenAndServe(":8080", nil) // start server
+}
+

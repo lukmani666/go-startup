@@ -3,7 +3,13 @@ package main
 import (
 	"fmt"
 	"go-startup/basics"
+	"go-startup/utils"
 )
+
+func packageExample() {
+	fmt.Println("Add:", utils.Add(3, 4))
+	fmt.Println("Multiply:", utils.Multiply(2, 5))
+}
 
 func main() {
 	basics.VariablesAndConstants()
@@ -37,5 +43,24 @@ func main() {
 	}
 
 	basics.ArrayExample()
-
+	basics.StructExample()
+	basics.MethodExample()
+	basics.PointerExample()
+	basics.InterfaceExample()
+	basics.PolymorphismExample()
+	basics.StdLibExample()
+	packageExample()
+	basics.GoroutineExample()
+	basics.ChannelExample()
+	basics.SelectExample()
+	basics.WorkPoolExample()
+	basics.SyncWorker()
+	basics.SyncWorkerChan()
+	basics.WriteFile()
+	basics.ReadFile()
+	basics.EncodeJson()
+	basics.DecodeJson()
+	basics.JsonArray()
+	basics.Calculator()
+	basics.WebServer()
 }
